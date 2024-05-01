@@ -1,0 +1,4 @@
+
+OK = 0
+FAILED = 1
+CRC_ERROR = 2

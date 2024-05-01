@@ -9,29 +9,22 @@ import threading
 from submodule.QLogic.src.QLogic import Quaternion
 
 
-class ViewDcmTester(Ui_MainWindow):
+class ViewQVisualiser(Ui_MainWindow):
     def __init__(self, main_window):
-        super(ViewDcmTester, self).__init__()
+        super(ViewQVisualiser, self).__init__()
         self.main_window = main_window
         self.main_window.setFixedSize(964, 643)
 
         # Змінюємо метод closeEvent для вікна
-        self.main_window.closeEvent = types.MethodType(self.close_event, self.main_window)
+        self.main_window.closeEvent = types.MethodType(self.__close_event, self.main_window)
 
         self.setupUi(main_window)
 
         # Шести-осьова анімація обертання об'єкта в просторі
-        self.q_ = Quaternion()
+        self.q = Quaternion()
 
         self.vector_len = 0.1
         self.text_vector_distance = 0.12
-        self.dcm = np.eye(3, dtype=np.float64)
-        self.euler = np.zeros(3, dtype=np.float64)
-        self.angle_val = 0
-        self.vector_val = np.zeros(3, dtype=np.float64)
-        self.q = np.array([1, 0, 0, 0], dtype=np.float64)
-        self.q_norm = np.array([1, 0, 0, 0], dtype=np.float64)
-        self.norm_val = 0
 
         background = (30, 30, 10)
 
@@ -92,17 +85,27 @@ class ViewDcmTester(Ui_MainWindow):
         self.six_dof_animation.setCameraPosition(distance=0.5)
         self.six_dof_animation.setBackgroundColor(background)
 
+        self.update_q()
+        self.update_euler()
+        self.update()
+
         self.connector()
+
+    def __close_event(self, window, event):
+        """
+        Callback for close of windows event
+        """
+        event.accept()
 
     def connector(self):
         """
         Initialization events with callbacks
         """
-        self.angle.valueChanged.connect(self.callback_angle_vector)
-        self.vx.valueChanged.connect(self.callback_angle_vector)
-        self.vy.valueChanged.connect(self.callback_angle_vector)
-        self.vz.valueChanged.connect(self.callback_angle_vector)
-
+        self.angle.valueChanged.connect(self.callback_rotation_vector)
+        self.vx.valueChanged.connect(self.callback_rotation_vector)
+        self.vy.valueChanged.connect(self.callback_rotation_vector)
+        self.vz.valueChanged.connect(self.callback_rotation_vector)
+        self.cb_show_vector.clicked.connect(self.callback_show_rot_vector)
         self.qw.valueChanged.connect(self.callback_q)
         self.qx.valueChanged.connect(self.callback_q)
         self.qy.valueChanged.connect(self.callback_q)
@@ -112,275 +115,157 @@ class ViewDcmTester(Ui_MainWindow):
         self.pitch.valueChanged.connect(self.callback_euler)
         self.yaw.valueChanged.connect(self.callback_euler)
 
-        self.bt_play_animation.clicked.connect(self.animation_callback)
-
-    def animation_callback(self):
-        anim = threading.Thread(target=self.animation, args=())
-        anim.start()
-
-    def animation(self):
-        step = self.angle_val / 30
-        sleep = 0.15
-        for i in np.arange(0, self.angle_val+step, step):
-            print(i)
-            self.angle.setValue(i)
-            time.sleep(sleep)
-            sleep -= 0.005
-
-    def close_event(self, window, event):
-        """
-        Callback for close of windows event
-        """
-        reply = QtWidgets.QMessageBox.question(self.main_window, "Attention!",
-                                               "Do you want to close window?\n\n")
-        if reply == QtWidgets.QMessageBox.Yes:
-            event.accept()
-        else:
-            event.ignore()
-
-    # ========== MATH ==========
-    def q_to_dcm(self):
-        """
-        Calculating DCM using quaternion
-        """
-        w, x, y, z = self.q_norm
-
-        mXx = 1.0 - 2.0 * (y ** 2 + z ** 2)
-        mXy = 2.0 * (x * y + w * z)
-        mXz = 2.0 * (x * z - y * w)
-
-        mYx = 2.0 * x * y - 2 * z * w
-        mYy = 1.0 - 2.0 * x ** 2 - 2 * z ** 2
-        mYz = 2.0 * (y * z + x * w)
-
-        mZx = 2.0 * (x * z + y * w)
-        mZy = 2.0 * (y * z - x * w)
-        mZz = 1.0 - 2.0 * (x ** 2 + y ** 2)
-
-        dcm = np.array([
-            [mZz, mXz, mYz],
-            [mZx, mXx, mYx],
-            [mZy, mXy, mYy]
-        ])
-
-        self.dcm = np.around(dcm, decimals=4)
-
-    def q_from_euler(self, roll, pitch, yaw):
-        """
-        Calculating quaternion using Euler angles
-        """
-        c1 = np.cos(yaw * 0.5)
-        c2 = np.cos(pitch * 0.5)
-        c3 = np.cos(roll * 0.5)
-        s1 = np.sin(yaw * 0.5)
-        s2 = np.sin(pitch * 0.5)
-        s3 = np.sin(roll * 0.5)
-
-        w = c1 * c2 * c3 - s1 * s2 * s3
-        x = s1 * s2 * c3 + c1 * c2 * s3
-        y = s1 * c2 * c3 + c1 * s2 * s3
-        z = c1 * s2 * c3 - s1 * c2 * s3
-
-        self.q = np.around(np.array([w, x, y, z]), decimals=4)
-
-    def q_to_euler(self):
-        """
-        Calculating Euler angles using quaternion
-        """
-        qx2 = self.q[1] ** 2
-        qy2 = self.q[2] ** 2
-        qz2 = self.q[3] ** 2
-        self.euler[0] = np.arctan2(2 * self.q[1] * self.q[0] - 2 * self.q[2] * self.q[3],
-                                   1 - 2 * qx2 - 2 * qz2) * 180 / math.pi
-        self.euler[2] = -np.arcsin(2 * self.q[1] * self.q[2] - 2 * self.q[3] * self.q[0]) * 180 / math.pi
-        self.euler[1] = np.arctan2(2 * self.q[2] * self.q[0] - 2 * self.q[1] * self.q[3],
-                                   1 - 2 * qy2 - 2 * qz2) * 180 / math.pi
-
-    def q_to_angle_vector(self):
-        """
-        Calculating of vector and rotation angle around this vector
-        """
-        self.angle_val = np.rad2deg(2 * np.arccos(self.q_norm[0]))
-
-        power_sum = self.q_norm[1]**2 + self.q_norm[2]**2 + self.q_norm[3]**2
-        vector_len = np.linalg.norm(np.sqrt(power_sum if power_sum else 1))
-
-        self.vector_val[0] = self.q_norm[1] / vector_len
-        self.vector_val[1] = self.q_norm[2] / vector_len
-        self.vector_val[2] = self.q_norm[3] / vector_len
-
-    # ========== CALLBACKS ==========
-
-    def callback_euler(self):
-        """
-        Callback which callings when changing Euler double spin boxes
-        """
-        roll = np.deg2rad(self.roll.value())
-        pitch = np.deg2rad(self.pitch.value())
-        yaw = np.deg2rad(self.yaw.value())
-
-        self.q_.set_using_euler(np.array([roll, pitch, yaw], dtype=np.float64))
-
-        self.norm_val = self.q_.get_q_len()
-
-        self.q_norm = self.q_.get_q_array()
-        self.q_norm = np.around(self.q_norm, decimals=4)
-        self.dcm = self.q_.get_dcm()
-        rot_vector = self.q_.get_rotation_vector()
-        self.angle_val = rot_vector[0]
-        self.vector_val[0] = rot_vector[1]
-        self.vector_val[1] = rot_vector[2]
-        self.vector_val[2] = rot_vector[3]
-
-        self.update_q()
-        self.update_angle_vector()
-        self.update()
-
-    def callback_angle_vector(self):
-        """
-        Callback which callings when changing angle or vector double spin boxes
-        """
-        angle = np.deg2rad(self.angle.value())
-        vx = self.vx.value()
-        vy = self.vy.value()
-        vz = self.vz.value()
-
-        self.angle_val = angle
-        self.vector_val[0] = vx
-        self.vector_val[1] = vy
-        self.vector_val[2] = vz
-
-        self.q[0] = np.cos(angle / 2)
-        self.q[1] = np.sin(angle / 2) * vx
-        self.q[2] = np.sin(angle / 2) * vy
-        self.q[3] = np.sin(angle / 2) * vz
-
-        self.q = np.around(self.q, decimals=4)
-
-        self.norm_val = np.around(np.linalg.norm(self.q), decimals=4)
-
-        self.q_norm = self.q / self.norm_val
-        self.q_norm = np.around(self.q_norm, decimals=4)
-
-        self.q_to_dcm()
-        self.q_to_euler()
-        self.q_to_angle_vector()
-
-        self.update_euler()
-        self.update_q()
-        self.update()
+        self.bt_play_animation.clicked.connect(self.callback_animation)
+        self.bt_clear.clicked.connect(self.callback_clear)
 
     def callback_q(self):
         """
         Callback which callings when changing quaternion double spin boxes
         """
-        self.q[0] = self.qw.value()
-        self.q[1] = self.qx.value()
-        self.q[2] = self.qy.value()
-        self.q[3] = self.qz.value()
+        self.q.set_using_q(np.array([
+            self.qw.value(), self.qx.value(), self.qy.value(), self.qz.value()
+        ]))
 
-        self.norm_val = np.around(np.linalg.norm(self.q), decimals=4)
-
-        self.q_norm = self.q / (self.norm_val if self.norm_val else 1)
-        self.q_norm = np.around(self.q_norm, decimals=4)
-
-        self.q_to_dcm()
-        self.q_to_euler()
-        self.q_to_angle_vector()
-
+        self.update_rotation_vector()
         self.update_euler()
-        self.update_angle_vector()
         self.update()
 
-    # ========== UPDATING UI ==========
-    def update_euler(self):
-        """
-        Update Euler angles values in double spin boxes
-        """
-        self.roll.blockSignals(True)
-        self.pitch.blockSignals(True)
-        self.yaw.blockSignals(True)
+    def callback_euler(self):
+        roll = np.deg2rad(self.roll.value())
+        pitch = np.deg2rad(self.pitch.value())
+        yaw = np.deg2rad(self.yaw.value())
 
-        self.roll.setValue(self.euler[0])
-        self.yaw.setValue(self.euler[1])
-        self.pitch.setValue(self.euler[2])
+        self.q.set_using_euler(np.array([roll, pitch, yaw]))
 
-        self.roll.blockSignals(False)
-        self.pitch.blockSignals(False)
-        self.yaw.blockSignals(False)
+        self.update_rotation_vector()
+        self.update_q()
+        self.update()
 
-    def update_q(self):
-        """
-        Update quaternion values in double spin boxes
-        """
-        self.qw.blockSignals(True)
-        self.qx.blockSignals(True)
-        self.qy.blockSignals(True)
-        self.qz.blockSignals(True)
+    def callback_rotation_vector(self):
+        angle = np.deg2rad(self.angle.value())
+        vx = self.vx.value()
+        vy = self.vy.value()
+        vz = self.vz.value()
 
-        self.qw.setValue(self.q[0])
-        self.qx.setValue(self.q[1])
-        self.qy.setValue(self.q[2])
-        self.qz.setValue(self.q[3])
+        self.q.set_using_rotation_vector(np.array([angle, vx, vy, vz], dtype=np.float64))
 
-        self.qw.blockSignals(False)
-        self.qx.blockSignals(False)
-        self.qy.blockSignals(False)
-        self.qz.blockSignals(False)
+        self.update_euler()
+        self.update_q()
+        self.update()
 
-    def update_angle_vector(self):
-        """
-        Update angle and vector values in double spin boxes
-        """
+    def callback_show_rot_vector(self):
+        if self.cb_show_vector.isChecked():
+            self.update()
+        else:
+            vector = np.zeros(3)
+            self.rot_vector_axis.setData(pos=np.array([np.zeros(3), self.vector_len * vector]))
+
+    def callback_clear(self):
+        self.qw.setValue(1)
+        self.qx.setValue(0)
+        self.qy.setValue(0)
+        self.qz.setValue(0)
+        self.lb_formula.setText(
+            f"cos({self.angle.value()}/2)   +   sin({self.angle.value()}/2) * ({self.vx.value()} + {self.vy.value()} + {self.vz.value()})")
+
+    def callback_animation(self):
+        anim = threading.Thread(target=self.animation_update, args=())
+        anim.start()
+
+    def animation_update(self):
+        step = self.angle.value() / 40
+        sleep = 0.05
+        for i in np.arange(0, self.angle.value() + step, step):
+            self.angle.setValue(i)
+            time.sleep(sleep)
+
+    def update_rotation_vector(self):
         self.angle.blockSignals(True)
         self.vx.blockSignals(True)
         self.vy.blockSignals(True)
         self.vz.blockSignals(True)
 
-        self.angle.setValue(self.angle_val)
-        self.vx.setValue(self.vector_val[0])
-        self.vy.setValue(self.vector_val[1])
-        self.vz.setValue(self.vector_val[2])
+        rotation_vector = self.q.rotation_vector
+        self.angle.setValue(rotation_vector[0])
+        self.vx.setValue(rotation_vector[1])
+        self.vy.setValue(rotation_vector[2])
+        self.vz.setValue(rotation_vector[3])
 
         self.angle.blockSignals(False)
         self.vx.blockSignals(False)
         self.vy.blockSignals(False)
         self.vz.blockSignals(False)
 
+    def update_euler(self):
+        self.roll.blockSignals(True)
+        self.pitch.blockSignals(True)
+        self.yaw.blockSignals(True)
+
+        euler = self.q.euler
+        self.roll.setValue(euler[0])
+        self.pitch.setValue(euler[1])
+        self.yaw.setValue(euler[2])
+
+        self.roll.blockSignals(False)
+        self.pitch.blockSignals(False)
+        self.yaw.blockSignals(False)
+
+    def update_q(self):
+        self.qw.blockSignals(True)
+        self.qx.blockSignals(True)
+        self.qy.blockSignals(True)
+        self.qz.blockSignals(True)
+
+        self.qw.setValue(self.q.w)
+        self.qx.setValue(self.q.x)
+        self.qy.setValue(self.q.y)
+        self.qz.setValue(self.q.z)
+
+        self.qw.blockSignals(False)
+        self.qx.blockSignals(False)
+        self.qy.blockSignals(False)
+        self.qz.blockSignals(False)
+
+        self.lb_formula.setText(
+            f"cos({self.angle.value()}/2)   +   sin({self.angle.value()}/2) * ({self.vx.value()} + {self.vy.value()} + {self.vz.value()})")
+
     def update(self):
         """
         Update normalized quaternion, norm of quaternion, direct cosine matrix and 3D visualisation
         """
-        self.teznor.setText(str(self.norm_val))
+        self.teznor.setText(str(self.q.length))
+        vector_val = self.q.rotation_vector
 
-        self.qwn.setText(str(self.q_norm[0]))
-        self.qxn.setText(str(self.q_norm[1]))
-        self.qyn.setText(str(self.q_norm[2]))
-        self.qzn.setText(str(self.q_norm[3]))
+        self.qwn.setText(str(self.q.w))
+        self.qxn.setText(str(self.q.x))
+        self.qyn.setText(str(self.q.y))
+        self.qzn.setText(str(self.q.z))
 
-        self.Xz.setText(str(self.dcm[0][1]))
-        self.Xx.setText(str(self.dcm[1][1]))
-        self.Xy.setText(str(self.dcm[2][1]))
+        dcm = self.q.dcm_for_qt
+        self.Xz.setText(str(dcm[0][1]))
+        self.Xx.setText(str(dcm[1][1]))
+        self.Xy.setText(str(dcm[2][1]))
 
-        self.Yz.setText(str(self.dcm[0][2]))
-        self.Yx.setText(str(self.dcm[1][2]))
-        self.Yy.setText(str(self.dcm[2][2]))
+        self.Yz.setText(str(dcm[0][2]))
+        self.Yx.setText(str(dcm[1][2]))
+        self.Yy.setText(str(dcm[2][2]))
 
-        self.Zz.setText(str(self.dcm[0][0]))
-        self.Zx.setText(str(self.dcm[1][0]))
-        self.Zy.setText(str(self.dcm[2][0]))
+        self.Zz.setText(str(dcm[0][0]))
+        self.Zx.setText(str(dcm[1][0]))
+        self.Zy.setText(str(dcm[2][0]))
 
         # Set X vector
-        self.x_axis.setData(pos=np.array([np.zeros(3), self.vector_len * self.dcm[:, 1].copy()]))
-        self.text_item_x.setData(pos=self.text_vector_distance * self.dcm[:, 1].copy())
+        self.x_axis.setData(pos=np.array([np.zeros(3), self.vector_len * dcm[:, 1].copy()]))
+        self.text_item_x.setData(pos=self.text_vector_distance * dcm[:, 1].copy())
 
         # Set Y vector
-        self.y_axis.setData(pos=np.array([np.zeros(3), self.vector_len * self.dcm[:, 2].copy()]))
-        self.text_item_y.setData(pos=self.text_vector_distance * self.dcm[:, 2].copy())
+        self.y_axis.setData(pos=np.array([np.zeros(3), self.vector_len * dcm[:, 2].copy()]))
+        self.text_item_y.setData(pos=self.text_vector_distance * dcm[:, 2].copy())
 
         # Set Z vector
-        self.z_axis.setData(pos=np.array([np.zeros(3), self.vector_len * self.dcm[:, 0].copy()]))
-        self.text_item_z.setData(pos=self.text_vector_distance * self.dcm[:, 0].copy())
+        self.z_axis.setData(pos=np.array([np.zeros(3), self.vector_len * dcm[:, 0].copy()]))
+        self.text_item_z.setData(pos=self.text_vector_distance * dcm[:, 0].copy())
 
-        vector = np.array([self.vector_val[2], self.vector_val[0], self.vector_val[1]])
-        self.rot_vector_axis.setData(pos=np.array([np.zeros(3), self.vector_len * vector]))
+        if self.cb_show_vector.isChecked():
+            vector = np.array([vector_val[3], vector_val[1], vector_val[2]])
+            self.rot_vector_axis.setData(pos=np.array([np.zeros(3), self.vector_len * vector]))
