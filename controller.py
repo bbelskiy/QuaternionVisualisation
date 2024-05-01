@@ -26,8 +26,10 @@ class Controller:
         return self.q
 
     def calc_gyr_error(self):
+        print("Start error calculating...")
         for i in range(500):
             self.serial_model.read_data()
+            print(i)
             self.serial_model.process_data()
             if self.data_model.parse(self.serial_model.get_processed_data()):
                 self.gyr_error += self.data_model.angular_velocity
