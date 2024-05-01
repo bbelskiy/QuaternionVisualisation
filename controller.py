@@ -39,11 +39,13 @@ class Controller:
         print(self.gyr_error, self.counter)
 
     def update_view(self):
-        self.view.set_acc_gyr_data(self.data_model.acceleration, self.compensated_gyr_data, self.q.to_numpy())
+        self.lock.acquire()
+        # self.view.set_acc_gyr_data(self.data_model.acceleration, self.compensated_gyr_data, self.q.to_numpy())
         self.view.qw.setValue(self.q.w)
         self.view.qx.setValue(self.q.x)
         self.view.qy.setValue(self.q.y)
         self.view.qz.setValue(self.q.z)
+        self.lock.release()
 
     def run(self):
         while True:
