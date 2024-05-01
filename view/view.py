@@ -9,9 +9,11 @@ import threading
 from submodule.QLogic.src.QLogic import Quaternion
 
 X, Y, Z = 0, 1, 2
+qW, qX, qY, qZ = 0, 1, 2, 3
 
 OK, FAILED = 0, 1
 
+W_PEN = {"color": (150, 50, 70), "width": 1.5}
 X_PEN = {"color": (255, 50, 0), "width": 1.5}
 Y_PEN = {"color": (0, 120, 255), "width": 1.5}
 Z_PEN = {"color": (50, 220, 0), "width": 1.5}
@@ -93,6 +95,7 @@ class ViewQVisualiser(Ui_MainWindow):
         self.six_dof_animation.setCameraPosition(distance=0.5)
         self.six_dof_animation.setBackgroundColor(background)
 
+        self.__q_curves = [None, None, None, None]
         self.__gyr_curves = [None, None, None]
         self.__acc_curves = [None, None, None]
 
@@ -103,6 +106,11 @@ class ViewQVisualiser(Ui_MainWindow):
         self.__acc_data_y = []
         self.__acc_data_z = []
 
+        self.__q_data_w = []
+        self.__q_data_x = []
+        self.__q_data_y = []
+        self.__q_data_z = []
+
         self.update_q()
         self.update_euler()
         self.update()
@@ -111,6 +119,7 @@ class ViewQVisualiser(Ui_MainWindow):
 
         self.__add_acc_chart()
         self.__add_gyr_chart()
+        self.__add_q_chart()
 
     def __close_event(self, window, event):
         """
@@ -143,6 +152,20 @@ class ViewQVisualiser(Ui_MainWindow):
         self.__gyr_curves[X] = self.__chart_gyr_plot.plot(name="X", pen=X_PEN)
         self.__gyr_curves[Y] = self.__chart_gyr_plot.plot(name="Y", pen=Y_PEN)
         self.__gyr_curves[Z] = self.__chart_gyr_plot.plot(name="Z", pen=Z_PEN)
+
+    def __add_q_chart(self):
+        """
+        Додати до інтерфесу графіки кутових швидкостей
+        """
+        self.__chart_q_plot = self.chart_q.addPlot()
+        self.__chart_q_plot.showAxis('bottom', True)
+        self.__chart_q_plot.setLabel('left', '', units='rad/sec')
+        self.__chart_q_plot.addLegend()
+        self.__chart_q_plot.showGrid(x=True, y=True)
+        self.__q_curves[qW] = self.__chart_q_plot.plot(name="W", pen=W_PEN)
+        self.__q_curves[qX] = self.__chart_q_plot.plot(name="X", pen=X_PEN)
+        self.__q_curves[qY] = self.__chart_q_plot.plot(name="Y", pen=Y_PEN)
+        self.__q_curves[qZ] = self.__chart_q_plot.plot(name="Z", pen=Z_PEN)
 
     def connector(self):
         """
@@ -276,13 +299,19 @@ class ViewQVisualiser(Ui_MainWindow):
         self.lb_formula.setText(
             f"cos({self.angle.value()}/2)   +   sin({self.angle.value()}/2) * ({self.vx.value()} + {self.vy.value()} + {self.vz.value()})")
 
-    def set_acc_gyr_data(self, acc, gyr):
+    def set_acc_gyr_data(self, acc, gyr, q):
         self.__gyr_data_x.append(gyr[0])
         self.__gyr_data_y.append(gyr[1])
         self.__gyr_data_z.append(gyr[2])
+
         self.__acc_data_x.append(acc[0])
         self.__acc_data_y.append(acc[1])
         self.__acc_data_z.append(acc[2])
+
+        self.__q_data_w.append(q[0])
+        self.__q_data_x.append(q[1])
+        self.__q_data_y.append(q[2])
+        self.__q_data_z.append(q[3])
 
         self.__acc_data_x = self.__acc_data_x[-200:]
         self.__acc_data_y = self.__acc_data_y[-200:]
@@ -292,6 +321,11 @@ class ViewQVisualiser(Ui_MainWindow):
         self.__gyr_data_y = self.__gyr_data_y[-200:]
         self.__gyr_data_z = self.__gyr_data_z[-200:]
 
+        self.__q_data_w = self.__q_data_w[-200:]
+        self.__q_data_x = self.__q_data_x[-200:]
+        self.__q_data_y = self.__q_data_y[-200:]
+        self.__q_data_z = self.__q_data_z[-200:]
+
         self.__acc_curves[X].setData(self.__acc_data_x)
         self.__acc_curves[Y].setData(self.__acc_data_y)
         self.__acc_curves[Z].setData(self.__acc_data_z)
@@ -299,6 +333,11 @@ class ViewQVisualiser(Ui_MainWindow):
         self.__gyr_curves[X].setData(self.__gyr_data_x)
         self.__gyr_curves[Y].setData(self.__gyr_data_y)
         self.__gyr_curves[Z].setData(self.__gyr_data_z)
+
+        self.__q_curves[qW].setData(self.__q_data_w)
+        self.__q_curves[qX].setData(self.__q_data_x)
+        self.__q_curves[qY].setData(self.__q_data_y)
+        self.__q_curves[qZ].setData(self.__q_data_z)
 
     def update(self):
         """

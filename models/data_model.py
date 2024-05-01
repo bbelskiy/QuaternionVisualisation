@@ -23,5 +23,7 @@ class DataModel(object):
                 self.gyr[0] = float(data[3])
                 self.gyr[1] = float(data[4])
                 self.gyr[2] = float(data[5])
-        except ValueError or TypeError or IndexError:
+                return True
+        except:
             pass
+        return False

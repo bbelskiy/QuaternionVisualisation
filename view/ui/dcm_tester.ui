@@ -1064,7 +1064,7 @@ vector</string>
      </rect>
     </property>
    </widget>
-   <widget class="GraphicsLayoutWidget" name="chart_blank">
+   <widget class="GraphicsLayoutWidget" name="chart_q">
     <property name="geometry">
      <rect>
       <x>950</x>
