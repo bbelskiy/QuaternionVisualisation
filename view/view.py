@@ -8,12 +8,20 @@ import pyqtgraph.opengl as gl
 import threading
 from submodule.QLogic.src.QLogic import Quaternion
 
+X, Y, Z = 0, 1, 2
+
+OK, FAILED = 0, 1
+
+X_PEN = {"color": (255, 50, 0), "width": 1.5}
+Y_PEN = {"color": (0, 120, 255), "width": 1.5}
+Z_PEN = {"color": (50, 220, 0), "width": 1.5}
+
 
 class ViewQVisualiser(Ui_MainWindow):
     def __init__(self, main_window):
         super(ViewQVisualiser, self).__init__()
         self.main_window = main_window
-        self.main_window.setFixedSize(964, 643)
+        self.main_window.setFixedSize(1409, 643)
 
         # Змінюємо метод closeEvent для вікна
         self.main_window.closeEvent = types.MethodType(self.__close_event, self.main_window)
@@ -85,17 +93,56 @@ class ViewQVisualiser(Ui_MainWindow):
         self.six_dof_animation.setCameraPosition(distance=0.5)
         self.six_dof_animation.setBackgroundColor(background)
 
+        self.__gyr_curves = [None, None, None]
+        self.__acc_curves = [None, None, None]
+
+        self.__gyr_data_x = []
+        self.__gyr_data_y = []
+        self.__gyr_data_z = []
+        self.__acc_data_x = []
+        self.__acc_data_y = []
+        self.__acc_data_z = []
+
         self.update_q()
         self.update_euler()
         self.update()
 
         self.connector()
 
+        self.__add_acc_chart()
+        self.__add_gyr_chart()
+
     def __close_event(self, window, event):
         """
         Callback for close of windows event
         """
         event.accept()
+
+    def __add_acc_chart(self):
+        """
+        Додати до інтерфесу графіки прискорень
+        """
+        self.__chart_acc_plot = self.chart_acc.addPlot()
+        self.__chart_acc_plot.showAxis('bottom', True)
+        self.__chart_acc_plot.setLabel('left', '', units='m/s^2')
+        self.__chart_acc_plot.addLegend()
+        self.__chart_acc_plot.showGrid(x=True, y=True)
+        self.__acc_curves[X] = self.__chart_acc_plot.plot(name="X", pen=X_PEN)
+        self.__acc_curves[Y] = self.__chart_acc_plot.plot(name="Y", pen=Y_PEN)
+        self.__acc_curves[Z] = self.__chart_acc_plot.plot(name="Z", pen=Z_PEN)
+
+    def __add_gyr_chart(self):
+        """
+        Додати до інтерфесу графіки кутових швидкостей
+        """
+        self.__chart_gyr_plot = self.chart_gyr.addPlot()
+        self.__chart_gyr_plot.showAxis('bottom', True)
+        self.__chart_gyr_plot.setLabel('left', '', units='rad/sec')
+        self.__chart_gyr_plot.addLegend()
+        self.__chart_gyr_plot.showGrid(x=True, y=True)
+        self.__gyr_curves[X] = self.__chart_gyr_plot.plot(name="X", pen=X_PEN)
+        self.__gyr_curves[Y] = self.__chart_gyr_plot.plot(name="Y", pen=Y_PEN)
+        self.__gyr_curves[Z] = self.__chart_gyr_plot.plot(name="Z", pen=Z_PEN)
 
     def connector(self):
         """
@@ -228,6 +275,30 @@ class ViewQVisualiser(Ui_MainWindow):
 
         self.lb_formula.setText(
             f"cos({self.angle.value()}/2)   +   sin({self.angle.value()}/2) * ({self.vx.value()} + {self.vy.value()} + {self.vz.value()})")
+
+    def set_acc_gyr_data(self, acc, gyr):
+        self.__gyr_data_x.append(gyr[0])
+        self.__gyr_data_y.append(gyr[1])
+        self.__gyr_data_z.append(gyr[2])
+        self.__acc_data_x.append(acc[0])
+        self.__acc_data_y.append(acc[1])
+        self.__acc_data_z.append(acc[2])
+
+        self.__acc_data_x = self.__acc_data_x[-200:]
+        self.__acc_data_y = self.__acc_data_y[-200:]
+        self.__acc_data_z = self.__acc_data_z[-200:]
+
+        self.__gyr_data_x = self.__gyr_data_x[-200:]
+        self.__gyr_data_y = self.__gyr_data_y[-200:]
+        self.__gyr_data_z = self.__gyr_data_z[-200:]
+
+        self.__acc_curves[X].setData(self.__acc_data_x)
+        self.__acc_curves[Y].setData(self.__acc_data_y)
+        self.__acc_curves[Z].setData(self.__acc_data_z)
+
+        self.__gyr_curves[X].setData(self.__gyr_data_x)
+        self.__gyr_curves[Y].setData(self.__gyr_data_y)
+        self.__gyr_curves[Z].setData(self.__gyr_data_z)
 
     def update(self):
         """
