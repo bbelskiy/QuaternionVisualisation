@@ -7,7 +7,7 @@ from submodule.QLogic.src.QLogic import Quaternion
 
 class Controller:
     def __init__(self, view):
-        self.serial_model = SerialModel('COM10', 115200)
+        self.serial_model = SerialModel('COM7', 115200)
         self.serial_model.connect()
         self.data_model = DataModel()
         self.q = Quaternion(np.array([1, 0, 0, 0], dtype=np.float64))
