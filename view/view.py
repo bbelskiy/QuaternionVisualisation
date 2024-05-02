@@ -13,7 +13,7 @@ qW, qX, qY, qZ = 0, 1, 2, 3
 
 OK, FAILED = 0, 1
 
-W_PEN = {"color": (150, 50, 70), "width": 1.5}
+W_PEN = {"color": (255, 255, 255), "width": 1.5}
 X_PEN = {"color": (255, 50, 0), "width": 1.5}
 Y_PEN = {"color": (0, 120, 255), "width": 1.5}
 Z_PEN = {"color": (50, 220, 0), "width": 1.5}

@@ -233,7 +233,7 @@ class Ui_MainWindow(object):
         self.pitch.setObjectName("pitch")
         self.cb_show_vector = QtWidgets.QCheckBox(self.centralwidget)
         self.cb_show_vector.setGeometry(QtCore.QRect(10, 120, 81, 41))
-        self.cb_show_vector.setChecked(True)
+        self.cb_show_vector.setChecked(False)
         self.cb_show_vector.setObjectName("cb_show_vector")
         self.line_3 = QtWidgets.QFrame(self.centralwidget)
         self.line_3.setGeometry(QtCore.QRect(10, 520, 381, 16))
