@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from threading import Lock
 from models.serial_model import SerialModel
@@ -7,7 +9,7 @@ from submodule.QLogic.src.QLogic import Quaternion
 
 class Controller:
     def __init__(self, view):
-        self.serial_model = SerialModel('COM7', 115200)
+        self.serial_model = SerialModel('COM10', 115200)
         self.serial_model.connect()
         self.data_model = DataModel()
         self.q = Quaternion(np.array([1, 0, 0, 0], dtype=np.float64))
@@ -19,7 +21,7 @@ class Controller:
         self.counter = 0
 
         self.compensated_gyr_data = np.array([0, 0, 0], dtype=np.float64)
-
+        self.previous_time = time.time()
         self.calc_gyr_error()
 
     def get_q(self):
@@ -38,14 +40,15 @@ class Controller:
         self.gyr_error /= self.counter
         print(self.gyr_error, self.counter)
 
-    def update_view(self):
-        self.lock.acquire()
-        # self.view.set_acc_gyr_data(self.data_model.acceleration, self.compensated_gyr_data, self.q.to_numpy())
-        self.view.qw.setValue(self.q.w)
-        self.view.qx.setValue(self.q.x)
-        self.view.qy.setValue(self.q.y)
-        self.view.qz.setValue(self.q.z)
-        self.lock.release()
+    def update_view(self, enable_charts=False):
+        if ((t := time.time()) - self.previous_time) > 0.05:
+            if enable_charts:
+                self.view.set_acc_gyr_data(self.data_model.acceleration, self.compensated_gyr_data, self.q.to_numpy())
+            self.view.qw.setValue(self.q.w)
+            self.view.qx.setValue(self.q.x)
+            self.view.qy.setValue(self.q.y)
+            self.view.qz.setValue(self.q.z)
+            self.previous_time = t
 
     def run(self):
         while True:
@@ -54,7 +57,7 @@ class Controller:
             self.data_model.parse(self.serial_model.get_processed_data())
 
             self.calculate_orientation()
-            self.update_view()
+            self.update_view(enable_charts=True)
 
     def calculate_orientation(self):
         self.compensated_gyr_data = self.data_model.angular_velocity - self.gyr_error
