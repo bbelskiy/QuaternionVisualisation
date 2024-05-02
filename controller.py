@@ -1,10 +1,10 @@
 import time
-from alive_progress import alive_bar
+from threading import Lock
 
 import numpy as np
-from threading import Lock
-from models.serial_model import SerialModel
+
 from models.data_model import DataModel
+from models.serial_model import SerialModel
 from submodule.QLogic.src.QLogic import Quaternion
 
 
