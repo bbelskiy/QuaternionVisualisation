@@ -1,5 +1,5 @@
 import time
-from threading import Lock
+from threading import Lock, Thread
 
 import numpy as np
 
@@ -7,16 +7,22 @@ from models.data_model import DataModel
 from models.serial_model import SerialModel
 from submodule.QLogic.src.QLogic import Quaternion
 
+from view.view import QtWidgets, ViewQVisualiser, pg
+
 
 class Controller:
-    def __init__(self, view):
-        self.serial_model = SerialModel('COM10', 115200)
-        self.serial_model.connect()
+    def __init__(self):
+        self.serial_model = SerialModel()
         self.data_model = DataModel()
+
+        self.main_window = QtWidgets.QMainWindow()
+        self.view = ViewQVisualiser(self.main_window, self.serial_model, self.serial_connect_callback)
+        self.main_window.show()
+        self.controller_thread = Thread(target=self.run, args={})
+
         self.q = Quaternion(np.array([1, 0, 0, 0], dtype=np.float64))
         self.qW = Quaternion(np.array([1, 0, 0, 0], dtype=np.float64))
         self.lock = Lock()
-        self.view = view
 
         self.gyr_error = np.array([0, 0, 0], dtype=np.float64)
         self.counter = 0
@@ -25,7 +31,6 @@ class Controller:
         self.geo_accel_data = np.array([0, 0, 0], dtype=np.float64)
         self.accel_q = Quaternion()
         self.previous_time = time.time()
-        self.calc_gyr_error()
 
     def get_q(self):
         return self.q
@@ -57,11 +62,10 @@ class Controller:
             self.previous_time = t
 
     def run(self):
-        while True:
+        while self.serial_model.is_serial_connected():
             self.serial_model.read_data()
             self.serial_model.process_data()
             self.data_model.parse(self.serial_model.get_processed_data())
-
             self.calculate_orientation()
             self.update_view(enable_charts=True, enable_q=True)
 
@@ -75,3 +79,14 @@ class Controller:
         self.accel_q.set_vector_as_q(self.data_model.acceleration)
         gel_accel = self.q * self.accel_q * self.q.conjugate
         self.geo_accel_data = gel_accel.vector_to_numpy() - np.array([0, 9.81, 0])
+
+    def serial_connect_callback(self):
+        if not self.controller_thread or not self.controller_thread.is_alive():
+            self.controller_thread = Thread(target=self.run, args={})
+        self.controller_thread.start()
+
+    def serial_disconnect(self):
+        self.serial_model.disconnect()
+
+    def set_serial_port(self, port):
+        self.serial_model.set_serial_port(port)

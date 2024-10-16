@@ -21,6 +21,7 @@ class SerialModel:
         self._available_serial = []
         self._serial_port = serial_port
         self._baud_rate = baud_rate
+        self._is_port_selected = False
         self._is_serial_connected = False
         self.ser = None
 
@@ -51,12 +52,19 @@ class SerialModel:
         """
         return self._unpacked_data
 
+    def is_port_selected(self):
+        """
+        Getter for _is_port_selected
+        :return: True if Port selected, False otherwise
+        """
+        return self._is_port_selected
+
     def is_serial_connected(self) -> bool:
         """
         Getter for _is_com_connected
         :return: True if Serial connected, False if not
         """
-        return self._is_serial_connected
+        return self.ser.is_open
 
     def is_connection_lost(self) -> bool:
         """
@@ -86,8 +94,9 @@ class SerialModel:
         :return: 0 if everything is OK,
                  1 if not (FAILED)
         """
-        if isinstance(serial_port, str):
+        if isinstance(serial_port, str) and serial_port not in self.get_serial_ports():
             self._serial_port = serial_port
+            self._is_port_selected = True
             return statuses.OK
         else:
             return statuses.FAILED
@@ -125,13 +134,14 @@ class SerialModel:
         :return: 0 if everything is OK,
                  1 if SerialException (FAILED)
         """
-        try:
-            self.ser.close()
-        except serial.SerialException:
-            return statuses.FAILED
-        else:
-            self._is_serial_connected = False
-            return statuses.OK
+        if self.ser.is_open :
+            try:
+                self.ser.close()
+            except serial.SerialException:
+                return statuses.FAILED
+            else:
+                self._is_serial_connected = False
+                return statuses.OK
 
     def read_data(self):
         """
@@ -143,7 +153,7 @@ class SerialModel:
             self._obtained_bytes = self.ser.readline()
         except serial.SerialException:
             self._lost_connection = True
-            self.disconnect()
+            # self.disconnect()
 
     def process_data(self):
         """

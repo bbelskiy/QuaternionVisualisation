@@ -2,11 +2,15 @@ import math
 import time
 import types
 import numpy as np
+
+import statuses
 from view.ui.ui import Ui_MainWindow, QtWidgets
+from view.ui.serial_ui import Ui_Serial
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import threading
 from submodule.QLogic.src.QLogic import Quaternion
+from models.serial_model import SerialModel
 
 X, Y, Z = 0, 1, 2
 qW, qX, qY, qZ = 0, 1, 2, 3
@@ -20,14 +24,17 @@ Z_PEN = {"color": (50, 220, 0), "width": 1.5}
 
 
 class ViewQVisualiser(Ui_MainWindow):
-    def __init__(self, main_window):
+    def __init__(self, main_window, serial_model: SerialModel, serial_connect_callback):
         super(ViewQVisualiser, self).__init__()
         self.main_window = main_window
         self.main_window.setFixedSize(1409, 643)
-
         # Змінюємо метод closeEvent для вікна
         self.main_window.closeEvent = types.MethodType(self.__close_event, self.main_window)
+        self.serial_model = serial_model
+        self.serial_connect_callback = serial_connect_callback
 
+        self.serial_widget = QtWidgets.QWidget()
+        self.serial_window = SerialView(self.serial_widget, self.serial_model, serial_connect_callback)
         self.setupUi(main_window)
 
         # Шести-осьова анімація обертання об'єкта в просторі
@@ -187,6 +194,8 @@ class ViewQVisualiser(Ui_MainWindow):
 
         self.bt_play_animation.clicked.connect(self.callback_animation)
         self.bt_clear.clicked.connect(self.callback_clear)
+
+        self.actionDevice.triggered.connect(self.serial_window.show)
 
     def callback_q(self):
         """
@@ -379,3 +388,37 @@ class ViewQVisualiser(Ui_MainWindow):
         if self.cb_show_vector.isChecked():
             vector = np.array([vector_val[3], vector_val[1], vector_val[2]])
             self.rot_vector_axis.setData(pos=np.array([np.zeros(3), self.vector_len * vector]))
+
+
+class SerialView(Ui_Serial):
+    def __init__(self, widget: QtWidgets.QWidget, serial_model: SerialModel, serial_connect_callback):
+        super(SerialView, self).__init__()
+        self.widget = widget
+        self.serial_model = serial_model
+        self.serial_connect_callback = serial_connect_callback
+        self.setupUi(self.widget)
+
+    def show(self):
+        ports = self.serial_model.get_serial_ports()
+        for port in ports:
+            self.cb_port.addItem(port.device)
+        self.widget.show()
+        self.bt_connect.clicked.connect(self.connect)
+        self.bt_disconnect.clicked.connect(self.disconnect)
+
+    def hide(self):
+        self.widget.hide()
+
+    def connect(self):
+        self.serial_model.set_serial_port(self.cb_port.currentText())
+        self.serial_model.set_baud_rate(int(self.cb_baud.currentText()))
+        if self.serial_model.connect() is statuses.OK:
+            self.serial_connect_callback()
+            self.bt_connect.setEnabled(False)
+            self.bt_disconnect.setEnabled(True)
+
+    def disconnect(self):
+        self.serial_model.disconnect()
+        self.bt_disconnect.setEnabled(False)
+        self.bt_connect.setEnabled(True)
+
